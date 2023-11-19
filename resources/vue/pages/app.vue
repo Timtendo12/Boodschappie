@@ -1,6 +1,6 @@
 <template>
     <layout>
-        <h1>wtf</h1>
+
     </layout>
 </template>
 

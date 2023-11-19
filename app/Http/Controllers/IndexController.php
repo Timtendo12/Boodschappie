@@ -9,11 +9,22 @@ class IndexController extends Controller
 {
     public function index(): Response
     {
-        // check if the user is logged in, if not, render the login page
-        if (!auth()->check()) {
-            return Inertia::render('session/login');
+        $message = null;
+        if (request()->session()->get('success') !== null) {
+            $message = [
+                'type' => 'success',
+                'message' => request()->session()->get('success')
+            ];
+        } else if (request()->session()->get('error') !== null) {
+            $message = [
+                'type' => 'error',
+                'message' => request()->session()->get('error')
+            ];
         }
-        return Inertia::render('app');
+
+        return Inertia::render('app', [
+            'message' => $message,
+        ]);
     }
 
     public function tutorial(): Response

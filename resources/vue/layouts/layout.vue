@@ -19,6 +19,7 @@ import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { UAParser } from 'ua-parser-js'
 import nonApp from '../pages/nonApp.vue'
+import {toast} from "vue3-toastify";
 export default {
     name: "layout",
     components: {nonApp},
@@ -35,6 +36,7 @@ export default {
         let isMobile = false;
         const page = usePage()
         const csrf = computed(() => page.props.csrf)
+        const message = computed(() => page.props.message)
         // check if on pwa
         if (window.matchMedia('(display-mode: standalone)').matches) {
             isPWA = true;
@@ -52,7 +54,7 @@ export default {
 
         localStorage.setItem('device', JSON.stringify(result));
         console.log(result);
-        return { isPWA, csrf, isMobile}
+        return { isPWA, csrf, isMobile, message}
     },
     created() {
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -62,6 +64,14 @@ export default {
             this.deferredPrompt = e;
             this.PWAInstallable = true;
         });
+
+        if (this.message) {
+            if (this.message.type === "success") {
+                toast.success(this.message.message)
+            } else {
+                toast.error(this.message.message)
+            }
+        }
     }
 }
 </script>
