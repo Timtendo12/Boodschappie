@@ -37,6 +37,6 @@ Route::prefix('app')->group(function () {
     Route::get('/register', [SessionController::class, 'register'])->middleware('guest')->name('register');
     Route::post('/register', [SessionController::class, 'create'])->middleware('guest');
 
-    Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth');
+    Route::get('/logout', [SessionController::class, 'destroy'])->middleware('auth');
 
 });

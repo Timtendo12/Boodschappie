@@ -3,9 +3,11 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Mail\VerifyEmailMail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -23,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'verify_token',
+        'auth_session'
     ];
 
     /**
@@ -45,4 +48,16 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * Send the email verification notification.
+     * The notification will be queued to improve performance.
+     * @param $verificationCode string The verification code to be sent to the user.
+     * @return Void
+     */
+    public function sendVerifyEmailNotification($verificationCode): void
+    {
+        Mail::to($this->email)
+            ->send(new VerifyEmailMail($this, $verificationCode));
+    }
 }

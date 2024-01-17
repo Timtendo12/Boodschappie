@@ -10,20 +10,28 @@ class IndexController extends Controller
     public function index(): Response
     {
         $message = null;
-        if (request()->session()->get('success') !== null) {
-            $message = [
-                'type' => 'success',
-                'message' => request()->session()->get('success')
-            ];
-        } else if (request()->session()->get('error') !== null) {
-            $message = [
-                'type' => 'error',
-                'message' => request()->session()->get('error')
-            ];
+        $messageTypes = ['success', 'error', 'warning', 'info'];
+
+        foreach ($messageTypes as $type) {
+            $sessionMessage = request()->session()->get($type);
+
+            if ($sessionMessage !== null) {
+                $message = [
+                    'type' => $type,
+                    'message' => $sessionMessage,
+                ];
+                break; // Exit the loop once a message is found
+            }
+        }
+
+        $confetti = request()->session()->get('confetti');
+        if ($confetti === null) {
+            $confetti = false;
         }
 
         return Inertia::render('app', [
             'message' => $message,
+            'confetti' => $confetti,
         ]);
     }
 

@@ -2,23 +2,47 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\Session\LoginRequest;
+use App\Http\Requests\Session\RegisterRequest;
+use App\Http\Requests\Session\ResendVerificationEmailRequest;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Inertia\Response;
 use App\Traits\CommonTrait;
 
 class SessionController extends Controller
 {
     use CommonTrait;
-    public function store()
-    {
-        return Inertia::render('app');
-    }
 
     public function login()
     {
         return Inertia::render('session/login');
+    }
+
+    public function store(LoginRequest $request)
+    {
+        $validated = $request->validated();
+        $email = $validated['email'];
+        $password = $validated['password'];
+        $remember = $validated['remember'];
+
+        $user = User::where('email', $email)
+            ->where('email_verified_at', '!=', null)
+            ->where('verify_token', '=', null)
+            ->where('auth_session', '=', null)
+            ->first();
+
+        if (!$user) {
+            return $this->CommonResponse(null, 'User not found', 404);
+        }
+
+        if (!Auth::attempt(['email' => $email, 'password' => $password], $remember)) {
+            return $this->CommonResponse(null, 'Invalid credentials', 400);
+        }
+
+        Auth()->login($user, $remember);
+
+        return redirect('/app')->with('success', 'Je bent ingelogd. Welkom terug!')->with('confetti', true);
     }
 
     public function create(RegisterRequest $request)
@@ -33,18 +57,25 @@ class SessionController extends Controller
         $user = User::where('email', $email)->first();
 
         if ($user) {
-            return $this->CommonResponse(null, 'User already exists', 400);
+            return $this->CommonResponse(null, 'User already exists', 400, false);
         }
 
+        $token = $this->createVerificationCode();
+        $authSession = $this->createAuthSession();
+
         $user = User::create([
-            'first_name' => $firstName,
-            'last_name' => $lastName,
+            'first_name' => ucwords($firstName),
+            'last_name' => ucwords($lastName),
             'email' => $email,
             'password' => bcrypt($password),
-            'verify_token' => $this->createVerificationCode(),
+            'verify_token' => $token,
+            'auth_session' => $authSession,
         ]);
 
-        return $this->CommonResponse($user, 'User created successfully', 201);
+        // send verification email
+        //TODO: Uncomment this $user->sendVerifyEmailNotification($token);
+
+        return $this->CommonResponse($user, 'User created successfully', 201, true);
     }
 
     public function register()
@@ -54,7 +85,9 @@ class SessionController extends Controller
 
     public function destroy()
     {
-        return Inertia::render('app');
+        Auth::logout();
+
+        return $this->CommonResponse(null, 'User logged out', 200);
     }
 
     public function verifyEmail()
@@ -73,17 +106,49 @@ class SessionController extends Controller
 
         $user->email_verified_at = now();
         $user->verify_token = null;
+        $user->auth_session = null;
         $saveAction = $user->save();
         if (!$saveAction) {
             //BS-0001: Gebruiker kon niet opgeslagen worden.
             return $this->CommonResponse(null, 'Er is een fout opgetreden: BS-0001', 400);
         }
 
-        return redirect('/')->with('success', 'Je e-mailadres is geverifieerd. Je kan nu inloggen.');
+        return redirect('/')->with('success', 'Je e-mailadres is geverifieerd. Je kan nu inloggen.')->with('confetti', true);
+    }
+
+    public function resendVerificationEmail(ResendVerificationEmailRequest $request) {
+        $validated = $request->validated();
+        $email = $validated['email'];
+        $session = $validated['session'];
+
+        $user = User::where('email', $email)->where('auth_session', $session)->first();
+
+        if (!$user) {
+            return $this->CommonResponse(null, 'User not found', 404);
+        }
+
+        $token = $this->createVerificationCode();
+        $user->verify_token = $token;
+        $saveAction = $user->save();
+
+        if (!$saveAction) {
+            //BS-0001: Gebruiker kon niet opgeslagen worden.
+            return $this->CommonResponse(null, 'Er is een fout opgetreden: BS-0001', 400);
+        }
+
+        // send verification email
+        $user->sendVerifyEmailNotification($token);
+
+        return $this->CommonResponse(null, 'Verification email sent', 200);
     }
 
     public function createVerificationCode(): string {
         // generate a random string of length 32
         return substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, 32);
+    }
+
+    public function createAuthSession(): string {
+        // generate a random string of length 32
+        return "AUTH-" . substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, 64);
     }
 }
